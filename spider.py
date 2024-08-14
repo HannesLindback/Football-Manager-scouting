@@ -1,11 +1,8 @@
-"""Module for creating a radar chart (spider chart) of a player compared to other
-players of the same division or of another single player."""
-
-
 import argparse
 from soccerplots.radar_chart import Radar
 from categories import Categories
-from server import Interact, Setup
+from request_data import Request
+from collections import defaultdict
 
 
 def spider(ranges, params, comparison, player_stats, name, age, mins, comp_name):
@@ -31,112 +28,92 @@ def spider(ranges, params, comparison, player_stats, name, age, mins, comp_name)
                                title=title, dpi=500, compare=True, filename='spider.jpg')
     
 
-def get_ranges(all_stats, possLost_i):
-    ranges = [[float('inf'), 0] for i in range(len(all_stats[0]))]
+def get_ranges(all_stats):
+    ranges = [(min(all_stats[stat]), max(all_stats[stat]))
+              # The lower the category possLost is the better,
+              # therefore reverse the order of this category's ranges
+              if stat != 'possLost' else (max(all_stats[stat]), min(all_stats[stat]))
+              for stat in all_stats]
     
-    for stats in all_stats:
-        for i, stat in enumerate(stats.values()):
-            if stat < ranges[i][0]:
-                ranges[i][0] = float(stat)
-            if float(stat) > ranges[i][1]:
-                ranges[i][1] = float(stat)
-
-    if possLost_i is not None:
-        ranges[possLost_i][0], ranges[possLost_i][1]  = ranges[possLost_i][1], ranges[possLost_i][0]
-
     return ranges
 
 
 def average_stats(all_stats):
-    average_stats = [0] * len(all_stats[0])
+    return [sum(stat)/len(stat) for stat in all_stats.values()]
+
+
+def get_stats(data, filter_cats):
+    stats = defaultdict(list)
     
-    for stats in all_stats:
-        for i, stat in enumerate(stats.values()):
-            average_stats[i] += stat
-            
-    average_stats = [average_stats[i] / len(all_stats)
-                     for i in range(len(average_stats))]
+    for records in data.values():
+        for key, val in records['Stats'].items():
+            if key in filter_cats:
+                stats[key].append(val)
+                
+    return stats
 
-    return average_stats
-
-
-def get_stats(players_from_division, category):
-    all_stats = []
-    for UID, record in players_from_division.items():
-        stats = {}
-        for stat, value in record['stats'].items():
-            if stat in category:
-                stats[stat] = value
-        all_stats.append(stats)
-    
-    return all_stats
 
 if __name__ == '__main__':    
     ap = argparse.ArgumentParser()
-    ap.add_argument('--name', type=str)
-    ap.add_argument('--category', type=str)
-    ap.add_argument('--position', type=str)
-    ap.add_argument('--comparison', type=str)
-    ap.add_argument('--mins', type=int)
-    ap.add_argument('--user', type=str)
-    ap.add_argument('--password', type=str)
-    ap.add_argument('--port', type=str)
-    ap.add_argument('--database', type=str)
+    ap.add_argument('--name', type=str, default="Paolo Gozzi")
+    ap.add_argument('--category', type=str, default='DC')
+    ap.add_argument('--position', type=str, default='DC')
+    ap.add_argument('--division', type=str, default=None)
+    ap.add_argument('--comparison', type=str, default='average')
+    ap.add_argument('--mins', type=int, default=449)
+    ap.add_argument('--user', type=str, default='postgres')
+    ap.add_argument('--password', type=str, default='root')
+    ap.add_argument('--port', type=str, default='localhost:5432')
+    ap.add_argument('--database', type=str, default='players')
     args = ap.parse_args()
 
-    setup = Setup()
-    engine = setup.create_engine(args.user,
-                                 args.password,
-                                 args.port,
-                                 database=args.database)
-    interact = Interact(engine)
     categories = Categories()
-    
-    tables = ('stats',)
-    position = [pos.strip() for pos in args.position.split(',')]
+
+    position = [pos.strip() for pos in args.position.split(',')] if args.position else None
     category = categories.stats[args.category]
+
+    login = {'user':  args.user, 'password': args.password,
+             'port': args.port, 'database': args.database}
     
-    player = interact.select(table_names=tables,
-                             pos=position,
-                             name=args.name,
-                             mins=args.mins)
-    
-    division    = [data['playerInfo']['division'] for data in player.values()][0]
-    player_stats = [data['stats'][stat] for data in player.values()
-                    for stat in category]
-    player_name = [data['Player']['name'] for data in player.values()][0]
-    player_age  = [data['playerInfo']['age'] for data in player.values()][0]
-    player_mins = [data['playerInfo']['mins'] for data in player.values()][0]
-    
-    players_from_division = interact.select(table_names=tables,
-                                            pos=position,
-                                            mins=args.mins,
-                                            division=division)
-    
+    player_filter = {'pos': position, 'mins':args.mins,
+                     'name': args.name, 'division': args.division}
+
+    player = next(iter(Request.retrieve_records(login=login, filter=player_filter).values()))
+
+    players_from_division_filter = {'pos': position,
+                                    'mins':args.mins,
+                                    'division': player['playerInfo']['division']}
+
+    players_from_division = Request.retrieve_records(login=login,
+                                             filter=players_from_division_filter)
+
     if len(players_from_division) <= 15:
         print(f'Ojoj! Bara {len(players_from_division)} spelare i databasen!')
         
-    stats_of_players_from_division = get_stats(players_from_division, set(category))
+    stats_of_players_from_division = get_stats(players_from_division,
+                                               set(category))
     
     ranges = get_ranges(stats_of_players_from_division)
     
-    
     if args.comparison != 'average':
-        comp_player = interact.select(table_names=tables,
-                                      pos=position,
-                                      name=args.comparison,
-                                      mins=args.mins)
-        comparison = [data['stats'][stat] for data in comp_player.values()
-                      for stat in category]
+        comp_player_filter = {'pos': position,
+                              'name': args.comparison,
+                              'mins': args.mins}
         
+        comp_player = next(iter(Request.retrieve_records(login=login,
+                                       filter=comp_player_filter).values()))
+        
+        comparison = [comp_player['stats'][stat] for stat in category]
+
     else:
         comparison = average_stats(stats_of_players_from_division)
     
     spider(ranges=ranges,
            params=category,
            comparison=comparison,
-           player_stats=player_stats,
-           name=player_name,
-           mins=player_mins,
-           age=player_age,
+           player_stats=list(player['stats'].values()),
+           name=player['player']['name'],
+           mins=player['playerInfo']['mins'],
+           age=player['layerInfo']['age'],
            comp_name=args.comparison)
+    

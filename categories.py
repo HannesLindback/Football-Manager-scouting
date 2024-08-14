@@ -1,7 +1,6 @@
 class Categories:
     
     def __init__(self):
-        """A bunch of pre-defined categories to make things easier."""
         
         self.columns = {'stats':      ['aerA', 'hdrsW', 'blk', 'clr', 'tckC',
                                        'presA', 'presC', 'interceptions', 'sprints',
@@ -48,10 +47,8 @@ class Categories:
                          'psA', 'psC', 'prPasses', 'opKp', 'chC', 'xa',
                          'shot', 'sht', 'npXg']}
     
-        self.playerInfo =  {'all': ['age', 'mins', 'position', 'allPositions',
-                                    'division', 'rightFoot', 'leftFoot', 'club', 'nat'],
-                            'index': ['age', 'mins', 'division', 'rightFoot',
-                                      'leftFoot', 'club', 'nat']}
+        self.playerInfo =  {'all': ['age', 'mins', 'position', 'allPositions', 'division', 'rightFoot', 'leftFoot', 'club', 'nat'],
+                            'index': ['age', 'mins', 'division', 'rightFoot', 'leftFoot', 'club', 'nat']}
         
         self.contract = {'all':   ['beginDate', 'expiryDate',
                                    'extension', 'wage', 'value', 'releaseClauseFee']}
@@ -88,3 +85,36 @@ class Categories:
                                    'fla', 'otb', 'tea', 'vis',
                                    'wor', 'acc', 'agi', 'bal',
                                    'jum', 'natF', 'pac', 'sta', 'str']}
+        
+        self.tables = {'name': 'player', 'playerID': 'player', 'age': 'player_info', 'position': 'player_info',
+                       'allPositions': 'player_info', 'rightFoot': 'player_info', 'leftFoot': 'player_info',
+                       'mins': 'player_info', 'division': 'player_info',
+                       'club': 'player_info', 'nat': 'player_info',
+                       'eligible': 'player_info', 'season': 'player_info',
+                       'aerA': 'stats', 'hdrsW': 'stats', 'blk': 'stats',
+                       'clr': 'stats', 'tckC': 'stats', 'presA': 'stats',
+                       'presC': 'stats', 'interceptions': 'stats',
+                       'sprints': 'stats', 'possLost': 'stats',
+                       'possWon': 'stats', 'drb': 'stats', 'opCrsA': 'stats',
+                       'opCrsC': 'stats', 'psA': 'stats', 'psC': 'stats',
+                       'prPasses': 'stats', 'opKp': 'stats', 'chC': 'stats',
+                       'xa': 'stats', 'shot': 'stats', 'sht': 'stats', 'npXg': 'stats',
+                       'club': 'contract', 'beginDate': 'contract', 'expiryDate': 'contract',
+                       'extension': 'contract', 'wage': 'contract', 'value': 'contract', 'releaseClauseFee': 'contract',
+                       'cor': 'attributes', 'cro': 'attributes', 'dri': 'attributes',
+                       'fin': 'attributes','fir': 'attributes', 'fre': 'attributes',
+                       'hea': 'attributes', 'lon': 'attributes', 'lth': 'attributes',
+                       'mar': 'attributes', 'pas': 'attributes', 'pen': 'attributes',
+                       'tck': 'attributes', 'tec': 'attributes', 'agg': 'attributes',
+                       'ant': 'attributes', 'bra': 'attributes', 'cmp': 'attributes',
+                       'cnt': 'attributes', 'decisions': 'attributes', 'det': 'attributes',
+                       'fla': 'attributes', 'ldr': 'attributes', 'otb': 'attributes',
+                       'pos':'attributes', 'tea': 'attributes', 'vis': 'attributes',
+                       'wor': 'attributes', 'acc': 'attributes', 'agi': 'attributes',
+                       'bal': 'attributes', 'jum': 'attributes', 'natF': 'attributes',
+                       'pac': 'attributes', 'sta': 'attributes', 'str': 'attributes',
+                       'aer': 'attributes', 'cmd': 'attributes', 'com': 'attributes',
+                       'ecc': 'attributes', 'han': 'attributes', 'kic': 'attributes',
+                       'oneVsOne': 'attributes', 'pun': 'attributes', 'ref': 'attributes',
+                       'tro': 'attributes', 'thr': 'attributes',
+                       'ca': 'ca'}
