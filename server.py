@@ -5,6 +5,7 @@ from sqlalchemy import select, create_engine, and_, func
 from tqdm import tqdm
 from errors import NoPlayerFoundError
 import sqlalchemy
+from typing import Dict, Tuple, Iterable
 
 
 class Setup:
@@ -14,9 +15,37 @@ class Setup:
                       user: str,
                       password: str,
                       host: str,
-                      database: str) -> sqlalchemy.engine.Engine:
+                      database: str
+                      ) -> sqlalchemy.engine.Engine:
+        """
+        Creates and returns a SQLAlchemy engine for connecting to a PostgreSQL database.
+
+        Parameters:
+        ----------
+        user : str
+            The username for authenticating the database connection.
+        password : str
+            The password for authenticating the database connection.
+        host : str
+            The hostname or IP address of the database server.
+        database : str
+            The name of the database to connect to.
+
+        Returns:
+        -------
+        sqlalchemy.engine.Engine
+            A SQLAlchemy Engine instance configured to connect to the specified PostgreSQL database.
+
+        Notes:
+        ------
+        - Uses `psycopg2` as the PostgreSQL driver.
+        - Constructs the database URL with the provided credentials and database details.
+        """
+        
         url = f'postgresql+psycopg2://{user}:{password}@{host}/{database}'
+        
         engine = create_engine(url)
+        
         return engine
 
 
@@ -38,9 +67,23 @@ class Interact:
 
     def create(self,
                drop: bool = False) -> None:
+        """
+        Creates the database schema by generating all tables from ORM models, with an option to drop existing tables.
+
+        Parameters:
+        ----------
+        drop : bool, optional
+            If set to `True`, drops all existing tables in the database before creating new ones. Default is `False`.
+
+        Notes:
+        ------
+        - If the connected database is 'historic', prompts the user for confirmation to avoid accidental overwriting.
+        - Uses `Base.metadata.create_all` to generate tables defined by ORM models in the metadata.
+        - Drops all tables if `drop` is set to `True` using `Base.metadata.drop_all`.
+        """
         
         if self.engine.url.database == 'historic':
-            inp = input("Du är påväg att fucka med den historiska databasen, är du säker på att du vill fortsätta??\n")
+            inp = input("You are about to overwrite the historic database. Continue? yes/no\n")
             
             if inp.lower() != 'yes':
                 exit()
@@ -52,9 +95,28 @@ class Interact:
         print('Database created.')
 
     def insert(self,
-               tables: dict = None,
-               lookup_tables: dict = None,
-               player_table: dict = None) -> None:
+               tables: Dict[str, Dict[str, str | float] | Tuple[Dict[str, int]]] = None,
+               lookup_tables: Dict[str,  str | int] = None,
+               player_table: Dict[str, str | int] = None) -> None:
+        """
+        Inserts player data and associated tables into the database using the provided ORM models.
+
+        Parameters:
+        ----------
+        tables : dict, optional
+            A dictionary where keys are table names and values are either a dictionary of attributes 
+            or a tuple of dictionaries representing individual records to be inserted.
+        lookup_tables : dict, optional
+            A dictionary where keys are lookup table names and values are either a dictionary of attributes 
+            or a tuple of dictionaries representing records to be inserted into lookup tables.
+        player_table : dict, optional
+            A dictionary of attributes representing the player record to be inserted.
+
+        Notes:
+        ------
+        - The method constructs player and table objects using the imported ORM models.
+        - Player records are added to the session before committing, enabling batch insertion.
+        """
         
         def add_tables():
             player = Player(**player_table)
@@ -91,16 +153,56 @@ class Interact:
             add_lookup_tables()
 
     def select(self,
-               pos=None,
-               mins: int=0,
-               name: str=None,
-               division: str=None,
-               min_ca: int=0,
-               eligible: int=None,
-               season: int=None,
+               pos: Iterable[str] = None,
+               mins: int = 0,
+               name: Iterable[str] | str = None,
+               division: Iterable[str] | str = None,
+               min_ca: int = 0,
+               eligible: int = None,
+               season: int = None,
                columns = (Player._id, Player, PlayerInfo,
                           Ca, Contract, Stats, Attributes)):
+        """
+        Retrieves player records from the database based on various filtering criteria.
 
+        Parameters:
+        ----------
+        pos : iterable of str, optional
+            A list or single value of positions to filter players by. 
+            If provided, only players in these specified positions will be included.
+        mins : int, optional
+            The minimum number of minutes played to filter players. Default is 0.
+        name : iterable of str or str, optional
+            The name(s) of players to filter by. This can be a single name or a list/tuple of names.
+        division : iterable of str or str, optional
+            The division(s) to filter players by. Can be a single division or a list/tuple of divisions.
+        min_ca : int, optional
+            The minimum current ability (CA) value to filter players by. Default is 0.
+        eligible : int, optional
+            The eligibility status to filter players by. If provided, only players matching this status will be selected.
+        season : int, optional
+            The season year to filter players by. If provided, only players from this specified season will be included.
+        columns : tuple, optional
+            The columns to retrieve in the query. Defaults to a predefined set of player-related tables.
+
+        Yields:
+        -------
+        tuple
+            A tuple containing the player's unique ID and a list of associated rows for that player.
+
+        Raises:
+        ------
+        NoPlayerFoundError
+            If no players match the specified filtering criteria.
+
+        Notes:
+        ------
+        - Constructs a dynamic query using SQLAlchemy to filter players based on the provided parameters.
+        - Joins various related tables (e.g., PlayerInfo, Ca, Contract, etc.) to retrieve comprehensive player data.
+        - Processes results and groups them by player ID, yielding results in a structured format.
+        - Utilizes `tqdm` to display progress while processing rows, enhancing user experience.
+        """
+        
         def ands(pos, name, division, eligible):
             ands = []
             ands.append(Ca.ca >= min_ca)
@@ -158,7 +260,7 @@ class Interact:
         results = self.session.execute(results)
 
         if n_rows == 0:
-            raise NoPlayerFoundError('Ojoj! Inga spelare hittade!')
+            raise NoPlayerFoundError('No players found!')
 
         row = next(results)
         previous_id = row.Player._id
@@ -177,30 +279,3 @@ class Interact:
 
         if rows:
             yield row.Player.uid, rows
-
-if __name__ == '__main__':
-    engine = Setup.create_engine('postgres',
-                                 'root',
-                                 'localhost:5432',
-                                 database='players')
-    
-    interact = Interact(engine)
-    
-    # interact.create(drop=True)
-    
-    # tables = {
-    #     'Position': [],
-    #     'Foot': [],
-    #     'Eligible': [
-    #         {'eligible': 'Yes', 'id': 1}, {'eligible': 'No', 'id': 0}]
-    #           }
-    
-    
-    # for id, pos in enumerate('GK DC DR DL WBR DM WBL MR MC ML AMR AMC AML STC'.split()):
-    #     tables['Position'].append({'position': pos, 'id': id})
-        
-    # for id, strength in enumerate('-,Very Weak,Weak,Reasonable,Fairly Strong,Strong,Very Strong'.split(',')):
-    #     tables['Foot'].append({'foot': strength, 'id': id})
-
-    # interact.insert(lookup_tables=tables)
-    # interact.commit()

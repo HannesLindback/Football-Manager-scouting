@@ -33,6 +33,7 @@ class Preprocess:
             'dec': 'decisions',
             '1v1': 'oneVsOne',
             'l th': 'lth',
+            'natf': 'natF',
             'right foot': 'rightfoot',
             'left foot': 'leftfoot',
             'begins': 'beginDate',
@@ -47,6 +48,7 @@ class Preprocess:
                  division_id: int = 0,
                  club_id: int = 0,
                  nat_id: int = 0) -> None:
+        """Class for preprocessing a Football Manager rtf-file."""
         
         self._id: Generator[int] = (i for i in itertools.count())
         self._season             = season
@@ -478,13 +480,3 @@ class Preprocess:
         """Returns a formatted header that is valid for SQL"""
         
         return self.CORRECT_COLUMN_HEADERS.get(header.lower(), header.lower())
-
-
-
-if __name__ == '__main__':
-
-    path = 'data.rtf'
-    process = Preprocess(season=27)
-
-    for table in process('data.rtf', 'category_map.json'):
-        breakpoint

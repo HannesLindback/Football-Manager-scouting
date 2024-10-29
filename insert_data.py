@@ -7,7 +7,37 @@ from tqdm import tqdm
 
 class Insert:
     
-    def __init__(self, user, password, port, database):
+    def __init__(self,
+                 user: str,
+                 password: str,
+                 port: str,
+                 database: str) -> None:
+        """
+        Initializes a database connection with user credentials and specified parameters.
+
+        Parameters:
+        ----------
+        user : str
+            The username for authenticating the database connection.
+        password : str
+            The password for authenticating the database connection.
+        port : str
+            The port number for connecting to the database server.
+        database : str
+            The name of the database to connect to.
+
+        Attributes:
+        -----------
+        source_connection : Interact
+            An instance of `Interact` that manages interactions with the database using the configured engine.
+
+        Notes:
+        ------
+        - Sets up a SQLAlchemy engine using `Setup.create_engine` with the provided connection parameters.
+        - Initializes `self.source_connection` with an `Interact` instance for handling database operations.
+        - Stores the user, password, and port as attributes for potential future use.
+        """
+        
         engine = Setup.create_engine(user,
                                      password,
                                      port,
@@ -19,24 +49,84 @@ class Insert:
 
         self.source_connection = Interact(engine)
 
-    def _insert_to_database(self, row, process, connection):
-        tables, lookup_tables = process(**row)
+    def insert_from_rtf(self,
+                        path: str,
+                        json_path: str,
+                        season: int,
+                        total: int = None) -> None:
+        """
+        Inserts the data of an RTF file generated from Football Manager into a database.
+        
+        The file is assumed to be of the raw format directly from FM,
+        where all data points are divided into cells separated with |
+        and each row is separated by one line like: | -- |. The first row should
+        consist of headers with the name of the category.
+        
+        Needs a JSON file mapping the each header to a wider category.
+        E.g. xA/90 -> Stats and cor -> Attributes.
+        
+        Processes the RTF file, categorizes data based on the given JSON mapping,
+        and inserts the data.
 
-        player = tables['Player']
-        del tables['Player']
+        Parameters:
+        ----------
+        path : str
+            The file path to the RTF file containing the FM data.
+        json_path : str
+            The file path to a JSON file containing the mapping of column headers to data categories.
+            NOTE: Removing individual mappings will almost definitely cause errors.
+                  Only remove entire categories at once! Adding things is fine though.
+        season : int
+            The season year associated with the entries being processed.
+        total : int, optional
+            The total number of entries, used to display progress in the insertion process.
 
-        connection.insert(tables=tables, player_table=player, lookup_tables=lookup_tables)
-
-    def insert_from_rtf(self, path, season, total=None):
+        Notes:
+        ------
+        - Initializes a `Preprocess` instance for handling RTF file data based on the specified season.
+        - Uses the `tqdm` library to display progress for each entry insertion.
+        - The `source_connection.insert` method is called for each entry, passing tables, player data, and lookup tables.
+        - Commits all entries to the database after insertion is complete.
+        """
+        
         process = Preprocess(season=season)
-
+        
         print('Inserting entries...')
-        for row in tqdm(process.from_rtf_file(path), desc='Entry', total=total):
-            self._insert_to_database(row, process, self.source_connection)
+        
+        n = 0
+        for tables, lookup_tables in tqdm(process(path, json_path), desc='Entry', total=total):
+            _tables = tables.copy()
+            
+            player = _tables['Player']
+            del _tables['Player']
 
+            self.source_connection.insert(tables=_tables, player_table=player, lookup_tables=lookup_tables)        
+
+            if n % 50000 == 0 and n != 0:
+                self.source_connection.commit()
+            
+            n += 1
+                
         self.source_connection.commit()
 
     def insert_from_database(self):
+        """
+        Inserts data from a source database to a target database, updating lookup tables and IDs as needed.
+
+        Prompts the user to input the target database name, connects to it, and retrieves required lookup tables.
+        Processes each row in the source database, applying necessary transformations and inserting it into the target.
+
+        Notes:
+        ------
+        - Prompts the user for the target database name and sets up a connection.
+        - Retrieves lookup tables and determines the maximum `division_id`, `club_id`, and `nat_id` for
+        appropriate ID assignments.
+        - Initializes a `Preprocess` instance with updated lookup tables and IDs.
+        - Iterates through each row in the source database using a request iterator, transforming and
+        inserting each entry into the target database.
+        - Commits all entries to the target database after processing is complete.
+        """
+        
         target_db = input('Target database name: ')
 
         engine = Setup.create_engine(self.user,
@@ -63,25 +153,3 @@ class Insert:
             self._insert_to_database(row, process, target_connection)
             
         target_connection.commit()
-                    
-        
-if __name__ == '__main__':
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--user', type=str, default='postgres')
-    ap.add_argument('--password', type=str, default='root')
-    ap.add_argument('--port', type=str, default='localhost:5432')
-    ap.add_argument('--database', type=str, default='players')
-    ap.add_argument('--from_database', type=bool, default=False)
-    ap.add_argument('--from_rtf', type=bool, default=False)
-    ap.add_argument('--season', type=int, default=27)
-    ap.add_argument('--total', type=int)
-    ap.add_argument('--path', type=str, default='/home/hantan/FM/data.rtf')
-    args = ap.parse_args()
-
-    insert = Insert(args.user, args.password, args.port, args.database)
-    
-    if args.from_rtf:
-        insert.insert_from_rtf(path=args.path, total=args.total, season=args.season)
-    if args.from_database:
-        insert.insert_from_database()
-    
