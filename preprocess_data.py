@@ -1,6 +1,6 @@
-import re, random, itertools, json
-from collections import defaultdict
-from typing import Generator, Iterable, Dict, List, Tuple
+import re, random, json
+from typing import Iterable, Dict, List, Tuple
+from server import Setup, Interact
 
 
 class Preprocess:
@@ -44,30 +44,29 @@ class Preprocess:
             }
     
     def __init__(self,
-                 season: int = None,
-                 division_id: int = 0,
-                 club_id: int = 0,
-                 nat_id: int = 0) -> None:
-        """Class for preprocessing a Football Manager rtf-file."""
+                 season: int,
+                 user: str,
+                 password: str,
+                 port: str,
+                 ) -> None:
+        """Class for preprocessing data from Football Manager."""
         
-        self._id: Generator[int] = (i for i in itertools.count())
-        self._season             = season
+        self._season = season
         
         self.lookup_tables = {
-            'Division': {},
-            'Club': {},
-            'Nat': {},
+            'division': 'division',
+            'club': 'club',
+            'nat': 'nat',
+            'rightfoot': 'foot',
+            'leftfoot': 'foot',
+            'eligible': 'eligible'
         }
-        self._lookup_tables_of_player = defaultdict(dict)
-        self.Position      = {pos: id for id, pos in enumerate('GK DC DR DL WBR DM WBL MR MC ML AMR AMC AML STC'.split())}
-        self.Foot          = {'-': 0, 'Very Weak': 1, 'Weak': 2, 'Reasonable': 3, 'Fairly Strong': 4, 'Strong': 5, 'Very Strong': 6}
-        self.Eligible      = {'No': 0, 'Yes': 1}
-        
-        self._Division_id: Generator[int]  = (i+division_id for i in itertools.count())
-        self._Club_id: Generator[int]      = (i+club_id for i in itertools.count())
-        self._Nat_id: Generator[int]       = (i+nat_id for i in itertools.count())
-        
-    def __call__(self, path: str, json_path: str):
+
+        engine = Setup.create_engine(user, password, port, database='players')
+    
+        self.interact = Interact(engine)
+    
+    def read_rtf_file(self, path: str, json_path: str):
         """
         Preprocesses the data of an RTF file generated from Football Manager.
         
@@ -93,78 +92,18 @@ class Preprocess:
 
         Yields:
         -------
-        tuple
-            A tuple containing:
-            - tables : dict
-                A dictionary of categorized tables, where keys are categories and values are dictionaries
-                of formatted column headers and associated values.
-                Each dictionary corresponds to one single player.
-            - lookup_tables : dict
-                A dictionary of lookup tables, generated based on specific "PlayerInfo" processing rules.
-                A bit clunky. Should be rewritten.
-
-        Notes:
-        ------
-        - The function loads a category mapping from the specified JSON file.
-        - Tables are initialized based on unique categories, excluding "Unused" entries.
-        - Special handling is applied to 'PlayerInfo' for encoding lookup tables and processing positional data.
+        tables : dict
+            A dictionary of categorized tables, where keys are categories and values are dictionaries
+            of formatted column headers and associated values.
+            Each dictionary corresponds to one single player.
         """
-        
+
         with open(json_path) as json_file:
             category_map = json.load(json_file)
         
-        tables: Dict[str, dict] = {category: {} for category in set(category_map.values())
-                                   if category != "Unused"}
-        
-        for line in self._read_rtf_file(path):
-            
-            for column_header, value in line.items():
-                
-                category = category_map[column_header]
-                
-                if category != 'Unused':
-                    column_header = self._format_header(column_header)
-                    
-                    try:
-                        tables[category][column_header] = value
-                    
-                    except TypeError:
-                        
-                        if isinstance(tables[category], Iterable):
-                            tables[category] = {}
-                            tables[category][column_header] = value
-                        else:
-                            raise TypeError
-                        
-                    except KeyError:
-                        tables[category].setdefault(column_header, value)
-        
-            self._clean(**tables)
-        
-            if 'PlayerInfo' in tables:
-                tables['PlayerInfo'].update(self._encode_lookup_tables(tables['PlayerInfo']))
-                tables['PlayerInfo'] = self._breakout_positions(tables['PlayerInfo'])
-            
-            lookup_tables = dict(self._lookup_tables_of_player)
-            self._lookup_tables_of_player = defaultdict(dict)
-        
-            yield tables, lookup_tables
-    
-    def _read_rtf_file(self, path: str):
-        """
-        Reads content from a RTF file generated from Football Manager.
-        Extracts column headers, and processes each line to yield formatted content.
-
-        Parameters:
-        ----------
-        path : str
-            The file path to the RTF document to be read.
-
-        Yields:
-        -------
-        str
-            A formatted line of content from the RTF file after applying necessary transformations.
-        """
+        tables: Dict[str, Dict[str, int | float | str]] = \
+            {category: {} for category in set(category_map.values())
+             if category != "Unused"}
 
         with open(path, 'r', encoding='utf-8') as fhand:
 
@@ -176,8 +115,40 @@ class Preprocess:
                     
                     line = self._format_line(line, column_headers)
                     
-                    yield line
+                    for column_header, value in line.items():
+                
+                        category = category_map[column_header]
+                        
+                        if category != 'Unused':
+                            column_header = self._format_header(column_header)
+                            
+                            
+                            try:
+                                tables[category][column_header] = value
+                            
+                            # Avoid the broken out PlayerInfo that is tuple.
+                            except TypeError:
+                                
+                                if isinstance(tables[category], Iterable):
+                                    tables[category] = {}
+                                    tables[category][column_header] = value
+                                else:
+                                    raise TypeError
+                                
+                            except KeyError:
+                                tables[category].setdefault(column_header, value)
+        
+                    self._clean(**tables)
                     
+                    try:
+                        
+                        tables['PlayerInfo'] = self._encode_string_names(tables['PlayerInfo'])
+                        
+                        tables['PlayerInfo'] = self._breakout_positions(tables['PlayerInfo'])
+                    except KeyError:
+                        pass
+                    
+                    yield tables
 
     def _clean(self,
                Player: Dict[str, str] = None,
@@ -224,16 +195,11 @@ class Preprocess:
                 pass
             
             try:
-                PlayerInfo['position']   = self._split_positions(PlayerInfo['position'])
-            except KeyError:
-                pass
-            
-            try:
                 PlayerInfo['mins']       = self._make_int(PlayerInfo['mins']) \
                                            if PlayerInfo['mins'] != '-' else 0
             except KeyError:
                 pass
-            
+
         def clean_stats_table():
             for key, val in Stats.items():
                 Stats[key] = float(val) if val != '-' else 0.0
@@ -296,30 +262,79 @@ class Preprocess:
             clean_contract_table()
         if Ca:
             clean_ca_table()
-             
+    
+    def _encode_positions(self, positions: list[str]) -> list[int]:
+        """
+        Encodes a list of string positions to unique int ids.
+        """
+        
+        position_ids = []
+        for pos in positions:
+            id = self.interact.lookup_tables('Position', ('position', pos))
+            position_ids.append(id)
+        
+        return position_ids
+    
+    def _breakout_positions(
+                            self,
+                            playerInfo: Dict[str, str | int]
+                            ) -> Tuple[Dict[str, str | int]]:
+        """
+        Breaks out the position a player can play at from a string
+        with multimple positions to atomic strings with one position per string.
+        
+        Returns a tuple containing the playerInfo dict, but with one position per dict in the tuple.
+        
+        Parameters:
+        ----------
+        playerInfo
+            The playerinfo table.
+
+        Returns:
+        -------
+        tables
+            A tuple of dicts containing one position per dict with the other values copied.
+        """
+        
+        positions = self._split_positions(playerInfo.pop('position'))
+        
+        positions = self._encode_positions(positions)
+        
+        tables = []
+        for i in range(len(positions)):
+            tables.append(playerInfo.copy())
+            tables[i]['position'] = positions[i]
+
+        return tuple(tables)
+
     @staticmethod
     def _split_positions(pos_string: str) -> List[str]:
-        """Helper function for splitting Football Manager's position strings
+        """
+        Helper function for splitting Football Manager's position strings
         to something more managable.
         
-        Example:
-            arg:
-                pos_string: str = 'M/AM (LC)
-            returns:
-                processed_positions: list = ['ML', 'MC', 'AML', 'AMC']"""
-            
+        For example a position string like: 'M/AM (LC) would be split to the list: ['ML', 'MC', 'AML', 'AMC']
+        """
+        
         raw_positions = pos_string.split(', ')
+        
         processed_positions = []
-
         for raw_pos in raw_positions:
-            sides = list(''.join(re.findall(r'\((.*?)\)', raw_pos)))
+            
+            # Finds the lateral marker, e.g. R, C or L (right, center, left).
+            lateral_markers = list(''.join(re.findall(r'\((.*?)\)', raw_pos)))
+            
+            # Finds the position without the lateral marker, e.g. GK, D, WB, DM, M, AM, ST
+            # (Goalkeeper, Defender, Wing back, Midfielder, Attacking midfielder, Striker)
             positions = re.search(r'[A-Z]{1,2}(/([A-Z]){1,2})*', raw_pos).group(0).split('/')
 
+            # Combines the position with the lateral marker to form positions like:
+            # AM (LC) -> AML, AMC; D/M (LC) -> DL, DC, ML, MC.
             combined = []
             for pos in positions:
-                if sides:
-                    for side in sides:
-                        combined.append(pos+side)
+                if lateral_markers:
+                    for lateral_marker in lateral_markers:
+                        combined.append(pos+lateral_marker)
                 else:
                     combined.append(pos)
 
@@ -327,88 +342,21 @@ class Preprocess:
 
         return processed_positions
 
-    @staticmethod
-    def _breakout_positions(table: Dict[str, str | int])-> Tuple[Dict[str, str | int]]:
-        """If a player can play at several positions,
-        breaks out the list of positions so that there is one position per row."""
+    def _encode_string_names(self, playerInfo: Dict[str, str | int]) -> Dict[str, str | int]:
+        """Encodes loose string names with int IDs.
         
-        new_tables = []
-        for i in range(len(table['position'])):
-            new_table = table.copy()
-            new_table['position'] = table['position'][i]
-            new_tables.append(new_table)
-
-        return tuple(new_tables)
-
-    def _encode_lookup_tables(self, tables: Dict[str, str | int]) -> Dict[str, int]:
-        """
-        Encodes the provided tables dictionary by mapping each value to a unique ID
-        and updates lookup tables accordingly.
-        
-        The database should not contain free text except for names etc. Therefore this 
-        function replaces club, division, positions eligibility and footedness with an ID.
-
-        Parameters:
-        ----------
-        tables : dict
-            Dictionary where keys are table names and values are either strings or integers representing
-            data entries for each table.
-
-        Returns:
-        -------
-        tables
-            The modified tables dictionary with values replaced by their corresponding encoded IDs
-            based on predefined lookup mappings.
-
-        Notes:
-        ------
-        - Each table entry is processed based on its type:
-        - `position`: Converted to a list of position IDs.
-        - `rightfoot` and `leftfoot`: Mapped to IDs from the `Foot` lookup.
-        - `eligible`: Mapped to IDs from the `Eligible` lookup.
-        - All other tables: Processed with `add_column_id` to assign unique IDs from
-            a lookup table and update `self._lookup_tables_of_player`.
-        - Helper functions within `_encode_lookup_tables` include:
-        - `add_column_id`: Adds a unique column ID for values not already in the lookup table.
-        - `add_position_id`: Maps a list of positions to corresponding position IDs.
+        Encodes the columns that have lookup tables with int ids.
+        Also updates the lookup table for new names.
         """
         
-        def add_column_id(val: str, table_name: str) -> int:
-            """Returns the row id of the given column."""
-
-            if self.lookup_tables.get(table_name) is not None:
-                
-                if not val in self.lookup_tables[table_name]:
-                    id = next(getattr(self, f'_{table_name}_id'))
-
-                    self.lookup_tables[table_name][val] = id
-                    self.lookup_tables[table_name][table_name.lower()] = val
-                    self.lookup_tables[table_name]['id'] = id
-
-                    self._lookup_tables_of_player[table_name][table_name.lower()] = val
-                    self._lookup_tables_of_player[table_name]['id'] = id
-
-                return self.lookup_tables[table_name][val]
-        
-        def add_position_id(positions: list[str]) -> list[int]:
-            """Returns the position ids for the positions in the row."""
+        for column, val in playerInfo.items():
             
-            return [self.Position[pos] for pos in positions]
-    
-        for table in tables:
-            if table == 'position':
-                val = add_position_id(tables[table])
-            elif table in {'rightfoot', 'leftfoot'}:
-                val = self.Foot[tables[table]]
-            elif table == 'eligible':
-                val = self.Eligible[tables[table]]
-            else:
-                val = add_column_id(tables[table], table.capitalize())
-            
-            if val is not None:
-                tables[table] = val
+            if self.lookup_tables.get(column):
+                id = self.interact.lookup_tables(self.lookup_tables[column].capitalize(), 
+                                                 (self.lookup_tables[column], val))
+                playerInfo[column] = id
         
-        return tables
+        return playerInfo
 
     @staticmethod
     def _format_high_values(val: str) -> float:

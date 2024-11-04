@@ -5,6 +5,7 @@ from sqlalchemy import select, create_engine, and_, func
 from tqdm import tqdm
 from errors import NoPlayerFoundError
 import sqlalchemy
+from sqlalchemy.dialects.postgresql import insert
 from typing import Dict, Tuple, Iterable
 
 
@@ -56,14 +57,18 @@ class Interact:
         self.session = Session(engine)
 
     def commit(self,
-               close: bool = True) -> None:
+               close: bool = True,
+               verbose: bool = False) -> None:
         
-        print('Commiting entries...')
+        if verbose:
+            print('Commiting entries...')
+        
         self.session.commit()
         if close:
             self.session.close()
-            
-        print('All entries commited to database!')
+        
+        if verbose:
+            print('All entries commited to database!')
 
     def create(self,
                drop: bool = False) -> None:
@@ -77,16 +82,9 @@ class Interact:
 
         Notes:
         ------
-        - If the connected database is 'historic', prompts the user for confirmation to avoid accidental overwriting.
         - Uses `Base.metadata.create_all` to generate tables defined by ORM models in the metadata.
         - Drops all tables if `drop` is set to `True` using `Base.metadata.drop_all`.
         """
-        
-        if self.engine.url.database == 'historic':
-            inp = input("You are about to overwrite the historic database. Continue? yes/no\n")
-            
-            if inp.lower() != 'yes':
-                exit()
         
         print('Creating database...')
         if drop:
@@ -95,21 +93,18 @@ class Interact:
         print('Database created.')
 
     def insert(self,
-               tables: Dict[str, Dict[str, str | float] | Tuple[Dict[str, int]]] = None,
-               lookup_tables: Dict[str,  str | int] = None,
-               player_table: Dict[str, str | int] = None) -> None:
+               tables: Dict[str, Dict[str, str | float] | Tuple[Dict[str, int]]],
+               player_table: Dict[str, str | int],
+               ) -> None:
         """
         Inserts player data and associated tables into the database using the provided ORM models.
 
         Parameters:
         ----------
-        tables : dict, optional
+        tables : dict
             A dictionary where keys are table names and values are either a dictionary of attributes 
             or a tuple of dictionaries representing individual records to be inserted.
-        lookup_tables : dict, optional
-            A dictionary where keys are lookup table names and values are either a dictionary of attributes 
-            or a tuple of dictionaries representing records to be inserted into lookup tables.
-        player_table : dict, optional
+        player_table : dict
             A dictionary of attributes representing the player record to be inserted.
 
         Notes:
@@ -117,40 +112,60 @@ class Interact:
         - The method constructs player and table objects using the imported ORM models.
         - Player records are added to the session before committing, enabling batch insertion.
         """
+       
+        global_vars = globals()
         
-        def add_tables():
-            player = Player(**player_table)
+        player = Player(**player_table)
+        
+        for table_name, table in tables.items():
+            table_obj = global_vars[table_name]
             
-            for table_name, table in tables.items():
-                table_obj = global_vars[table_name]
-                
-                if not isinstance(table, (tuple, list)):
-                    table_obj(_player=player, **table)
+            if not isinstance(table, (tuple, list)):
+                table_obj(_player=player, **table)
 
-                else:
-                    for t in table:
-                        table_obj(_player=player, **t)
-        
-            self.session.add(player)
-        
-        def add_lookup_tables():
-            for table_name, table in lookup_tables.items():
-                table_obj = global_vars[table_name]
-                
-                if not isinstance(table, (tuple, list)):
-                    self.session.add(table_obj(**table))
-                    
-                else:
-                    for t in table:
-                        self.session.add(table_obj(**t))
+            else:
+                for t in table:
+                    table_obj(_player=player, **t)
+    
+        self.session.add(player)
+            
+    def lookup_tables(self, lookup_table_name: str, lookup: Tuple[str, str]):
+        """
+        Retrieves the `id` of a row in a specified lookup table where a column matches a given value. 
+        If no matching row exists, it inserts a new row with the specified column-value pair and retrieves its `id`.
+
+        Args:
+            lookup_table_name (str): The name of the lookup table to query or insert into. This should match
+                the name of a table defined in the global scope.
+            lookup (Tuple[str, str]): A tuple where the first element is the name of the column to filter by,
+                and the second element is the value to match in that column.
+
+        Returns:
+            int: The `id` of the row that matches the specified column-value pair, whether found or newly inserted.
+
+        Example:
+            To get or create an entry in table `Division` where the column `division` has the value
+            'First Division', call:
+            
+            ```
+            division_id = lookup_tables("Division", ("division", "First Division"))
+            ```
+        """
         
         global_vars = globals()
         
-        if tables:
-            add_tables()
+        lookup_table = global_vars[lookup_table_name]
+        lookup_column_obj = getattr(lookup_table, lookup[0])
         
-        if lookup_tables:
-            add_lookup_tables()
+        id = self.session.query(lookup_table.id).filter(lookup_column_obj == lookup[1]).first()
+        
+        if id is None:
+            self.session.add(lookup_table(**{lookup[0]: lookup[1]}))
+            self.commit()
+        
+        id = self.session.query(lookup_table.id).filter(lookup_column_obj == lookup[1]).first()[0]
+
+        return id
 
     def select(self,
                pos: Iterable[str] = None,

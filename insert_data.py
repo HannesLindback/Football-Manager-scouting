@@ -99,62 +99,17 @@ class Insert:
         print('Inserting entries...')
         
         count = 0
-        for tables, lookup_tables in tqdm(process(path, json_path), desc='Entry', total=total):
+        for tables in tqdm(process.read_rtf_file(path, json_path), desc='Entry', total=total):
             _tables = tables.copy()
             
             player = _tables['Player']
             del _tables['Player']
 
-            self.source_connection.insert(tables=_tables, player_table=player, lookup_tables=lookup_tables)        
+            self.source_connection.insert(tables=_tables, player_table=player)        
 
             if n is not None and count % n == 0 and count != 0:
-                self.source_connection.commit()
+                self.source_connection.commit(verbose=True)
             
             count += 1
                 
-        self.source_connection.commit()
-
-    def insert_from_database(self):
-        """
-        Inserts data from a source database to a target database, updating lookup tables and IDs as needed.
-
-        Prompts the user to input the target database name, connects to it, and retrieves required lookup tables.
-        Processes each row in the source database, applying necessary transformations and inserting it into the target.
-
-        Notes:
-        ------
-        - Prompts the user for the target database name and sets up a connection.
-        - Retrieves lookup tables and determines the maximum `division_id`, `club_id`, and `nat_id` for
-        appropriate ID assignments.
-        - Initializes a `Preprocess` instance with updated lookup tables and IDs.
-        - Iterates through each row in the source database using a request iterator, transforming and
-        inserting each entry into the target database.
-        - Commits all entries to the target database after processing is complete.
-        """
-        
-        target_db = input('Target database name: ')
-
-        engine = Setup.create_engine(self.user,
-                                     self.password,
-                                     self.port,
-                                     database=target_db)
-        
-        target_connection = Interact(engine)
-        request = Request()
-        
-        lookup_tables = request.fetch_lookup_tables(connection=target_connection)
-        division_id = max([id for id in lookup_tables['Division'].values()])
-        club_id = max([id for id in lookup_tables['Club'].values()])
-        nat_id = max([id for id in lookup_tables['Nat'].values()])
-        
-        process = Preprocess(division_id=division_id,
-                             club_id=club_id,
-                             nat_id=nat_id)
-        process.lookup_tables.update(lookup_tables)
-        
-        for row in request.iterator(filter={},
-                                    connection=self.source_connection):
-            
-            self._insert_to_database(row, process, target_connection)
-            
-        target_connection.commit()
+        self.source_connection.commit(verbose=True)

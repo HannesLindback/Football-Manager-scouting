@@ -150,7 +150,6 @@ class Request:
             tables['Division'][division.division] = division.id
             tables['Club'][club.club] = club.id
             tables['Nat'][nat.nat] = nat.id
-            breakpoint
                 
         return dict(tables)
     

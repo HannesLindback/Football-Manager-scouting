@@ -62,7 +62,7 @@ class Position(Base):
     __tablename__ = 'position'
     
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=True)
     position: Mapped[str] = mapped_column(String(100))
     
 
@@ -71,7 +71,7 @@ class Nat(Base):
     __tablename__ = 'nat'
     
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int]  = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]  = mapped_column(primary_key=True, autoincrement=True)
     nat: Mapped[str] = mapped_column(String(100))
     
     
@@ -80,7 +80,7 @@ class Division(Base):
     __tablename__ = 'division'
     
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=True)
     division: Mapped[str] = mapped_column(String(100))
     
     
@@ -89,7 +89,7 @@ class Club(Base):
     __tablename__ = 'club'
     
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int]   = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]   = mapped_column(primary_key=True, autoincrement=True)
     club: Mapped[str] = mapped_column(String(100))
     
 
@@ -97,7 +97,7 @@ class Foot(Base):
     
     __tablename__ = 'foot'
     
-    id: Mapped[int]    = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]    = mapped_column(primary_key=True, autoincrement=True)
     foot: Mapped[str]  = mapped_column(String(100))
     
     _rightFootStrength = relationship('PlayerInfo', foreign_keys=PlayerInfo.rightfoot)
@@ -110,7 +110,7 @@ class Eligible(Base):
     
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
     
-    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=True)
     eligible: Mapped[str] = mapped_column(String(100))
 
 
