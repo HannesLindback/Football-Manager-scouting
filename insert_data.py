@@ -53,7 +53,8 @@ class Insert:
                         path: str,
                         json_path: str,
                         season: int,
-                        total: int = None) -> None:
+                        total: int = None,
+                        n: int = None) -> None:
         """
         Inserts the data of an RTF file generated from Football Manager into a database.
         
@@ -80,20 +81,24 @@ class Insert:
             The season year associated with the entries being processed.
         total : int, optional
             The total number of entries, used to display progress in the insertion process.
-
+        n : int, optional
+            After how many entries should commits be done. For a high number of inserts it is
+            recommended to commit several times rather than one big final commit. If None will
+            perform one commit after all entries have been inserted.
+        
         Notes:
         ------
         - Initializes a `Preprocess` instance for handling RTF file data based on the specified season.
         - Uses the `tqdm` library to display progress for each entry insertion.
         - The `source_connection.insert` method is called for each entry, passing tables, player data, and lookup tables.
-        - Commits all entries to the database after insertion is complete.
+        - Commits either for every n entry or after all entries have been inserted.
         """
         
         process = Preprocess(season=season)
         
         print('Inserting entries...')
         
-        n = 0
+        count = 0
         for tables, lookup_tables in tqdm(process(path, json_path), desc='Entry', total=total):
             _tables = tables.copy()
             
@@ -102,10 +107,10 @@ class Insert:
 
             self.source_connection.insert(tables=_tables, player_table=player, lookup_tables=lookup_tables)        
 
-            if n % 50000 == 0 and n != 0:
+            if n is not None and count % n == 0 and count != 0:
                 self.source_connection.commit()
             
-            n += 1
+            count += 1
                 
         self.source_connection.commit()
 
