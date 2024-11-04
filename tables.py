@@ -42,14 +42,6 @@ class PlayerInfo(Base):
     eligible: Mapped[str]  = mapped_column(Integer, sql.ForeignKey('eligible.id'))
 
     _player: Mapped['Player']      = relationship('Player', back_populates='PlayerInfo')
-    # Position: Mapped['Position']   = relationship('Position')
-    # RightFoot: Mapped['Foot']      = relationship('Foot', foreign_keys=[rightFoot])
-    # LeftFoot: Mapped['Foot']       = relationship('Foot', foreign_keys=[leftFoot])
-    # Division: Mapped['Division']   = relationship('Division')
-    # Club: Mapped['Club']           = relationship('Club')
-    # Nat: Mapped['Nat']             = relationship('Nat')
-    # Eligible: Mapped['Eligible']   = relationship('Eligible')
-    
     
     Position: Mapped['Position']   = relationship('Position', back_populates='_playerInfo')
     Rightfoot: Mapped['Foot']      = relationship('Foot', foreign_keys=[rightfoot], back_populates='_rightFootStrength')
@@ -69,9 +61,8 @@ class Position(Base):
     
     __tablename__ = 'position'
     
-    # _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo', back_populates='Position')
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int]      = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=False)
     position: Mapped[str] = mapped_column(String(100))
     
 
@@ -79,9 +70,8 @@ class Nat(Base):
     
     __tablename__ = 'nat'
     
-    # _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo', back_populates='Nat')
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]  = mapped_column(primary_key=True, autoincrement=False)
     nat: Mapped[str] = mapped_column(String(100))
     
     
@@ -89,9 +79,8 @@ class Division(Base):
     
     __tablename__ = 'division'
     
-    # _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo', back_populates='Division')
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int]      = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=False)
     division: Mapped[str] = mapped_column(String(100))
     
     
@@ -99,9 +88,8 @@ class Club(Base):
     
     __tablename__ = 'club'
     
-    # _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo', back_populates='Club')
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
-    id: Mapped[int]  = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]   = mapped_column(primary_key=True, autoincrement=False)
     club: Mapped[str] = mapped_column(String(100))
     
 
@@ -109,23 +97,20 @@ class Foot(Base):
     
     __tablename__ = 'foot'
     
-    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=False)
-    foot: Mapped[str]      = mapped_column(String(100))
+    id: Mapped[int]    = mapped_column(primary_key=True, autoincrement=False)
+    foot: Mapped[str]  = mapped_column(String(100))
     
-    # _rightFootStrength = relationship('PlayerInfo', foreign_keys=PlayerInfo.rightFoot, back_populates='RightFoot')
-    # _leftFootStrength = relationship('PlayerInfo', foreign_keys=PlayerInfo.leftFoot, back_populates='LeftFoot')
     _rightFootStrength = relationship('PlayerInfo', foreign_keys=PlayerInfo.rightfoot)
-    _leftFootStrength = relationship('PlayerInfo', foreign_keys=PlayerInfo.leftfoot)
+    _leftFootStrength  = relationship('PlayerInfo', foreign_keys=PlayerInfo.leftfoot)
 
 
 class Eligible(Base):
     
     __tablename__ = 'eligible'
     
-    # _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo', back_populates='Eligible')
     _playerInfo: Mapped['PlayerInfo'] = relationship('PlayerInfo')
     
-    id: Mapped[int]      = mapped_column(primary_key=True, autoincrement=False)
+    id: Mapped[int]       = mapped_column(primary_key=True, autoincrement=False)
     eligible: Mapped[str] = mapped_column(String(100))
 
 
@@ -133,8 +118,7 @@ class Stats(Base):
 
     __tablename__ = 'stats'
 
-    _id: Mapped[int]          = mapped_column(primary_key=True,
-                                    autoincrement=True)
+    _id: Mapped[int]          = mapped_column(primary_key=True, autoincrement=True)
     _playerID: Mapped[int]    = mapped_column(Integer, sql.ForeignKey('player._id'))
     _player: Mapped['Player'] = relationship('Player', back_populates='Stats')
 
