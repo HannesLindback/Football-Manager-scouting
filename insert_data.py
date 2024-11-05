@@ -94,22 +94,26 @@ class Insert:
         - Commits either for every n entry or after all entries have been inserted.
         """
         
-        process = Preprocess(season=season)
+        process = Preprocess(season=season, user=self.user, password=self.password, port=self.port)
         
         print('Inserting entries...')
         
+        read_rtf_file = process.read_rtf_file
+        insert = self.source_connection.insert
+        commit = self.source_connection.commit
+        
         count = 0
-        for tables in tqdm(process.read_rtf_file(path, json_path), desc='Entry', total=total):
+        for tables in tqdm(read_rtf_file(path, json_path), desc='Entry', total=total):
             _tables = tables.copy()
             
             player = _tables['Player']
             del _tables['Player']
 
-            self.source_connection.insert(tables=_tables, player_table=player)        
+            insert(tables=_tables, player_table=player)        
 
             if n is not None and count % n == 0 and count != 0:
-                self.source_connection.commit(verbose=True)
+                commit(verbose=True)
             
             count += 1
                 
-        self.source_connection.commit(verbose=True)
+        commit(verbose=True)

@@ -129,7 +129,7 @@ class Interact:
     
         self.session.add(player)
             
-    def lookup_tables(self, lookup_table_name: str, lookup: Tuple[str, str]):
+    def get_lookup_id(self, lookup_table_name: str, lookup: Tuple[str, str]):
         """
         Retrieves the `id` of a row in a specified lookup table where a column matches a given value. 
         If no matching row exists, it inserts a new row with the specified column-value pair and retrieves its `id`.

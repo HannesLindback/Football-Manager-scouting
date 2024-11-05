@@ -64,7 +64,8 @@ class Preprocess:
 
         engine = Setup.create_engine(user, password, port, database='players')
     
-        self.interact = Interact(engine)
+        interact = Interact(engine)
+        self.get_lookup_id = interact.get_lookup_id
     
     def read_rtf_file(self, path: str, json_path: str):
         """
@@ -270,7 +271,7 @@ class Preprocess:
         
         position_ids = []
         for pos in positions:
-            id = self.interact.lookup_tables('Position', ('position', pos))
+            id = self.get_lookup_id('Position', ('position', pos))
             position_ids.append(id)
         
         return position_ids
@@ -352,7 +353,7 @@ class Preprocess:
         for column, val in playerInfo.items():
             
             if self.lookup_tables.get(column):
-                id = self.interact.lookup_tables(self.lookup_tables[column].capitalize(), 
+                id = self.get_lookup_id(self.lookup_tables[column].capitalize(), 
                                                  (self.lookup_tables[column], val))
                 playerInfo[column] = id
         
