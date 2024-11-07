@@ -121,7 +121,7 @@ def average_stats(all_stats: Dict[str, List[float]]) -> List[float]:
     return [sum(stat)/len(stat) for stat in all_stats.values()]
 
 
-def get_stats(data: Players[Dict[Dict[str, str | float]]], filter_cats: set[str]) -> Dict[str, list[float]]:
+def get_stats(data: Players[Dict[str, Dict[str, str | float]]], filter_cats: set[str]) -> Dict[str, list[float]]:
     """
     Extracts statistics for players based on specified categories.
 
@@ -131,7 +131,7 @@ def get_stats(data: Players[Dict[Dict[str, str | float]]], filter_cats: set[str]
 
     Parameters
     ----------
-    data : Players[Dict[Dict[str, str | float]]]
+    data : Players[str, Dict[Dict[str, str | float]]]
         A collection of player data where each player's statistics are stored 
         in a dictionary format.
     filter_cats : set[str]
@@ -152,7 +152,7 @@ def get_stats(data: Players[Dict[Dict[str, str | float]]], filter_cats: set[str]
             if key in filter_cats:
                 stats[key].append(val)
                 
-    return Dict(stats)
+    return dict(stats)
 
 
 def spider(args, categories, request):
