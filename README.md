@@ -72,7 +72,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-Football Manager Scouting (bad name I know) is a python program for making data driven scouting easier in the FM games.
+Football Manager Scouting is a python program for making data driven scouting easier in the FM games.
 
 It currently provides two scouting tools:
 
