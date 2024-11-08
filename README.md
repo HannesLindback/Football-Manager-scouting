@@ -116,7 +116,13 @@ See <a href="#readme-top">Usage</a> for examples of how to insert data and use S
 
 Import the tools.
 ```
+<<<<<<< HEAD
+from football_manager_scouting.spider import spider
+from football_manager_scouting.index import index
+from football_manager_scouting.insert_data import insert_data
+=======
 from football_manager_scouting import spider, index, insert_data
+>>>>>>> ae608ee3ea803191177dcfafce9d09ab40201e7b
 ```
 
 Create a dictionary with the login information to the PostgreSQL database.
@@ -199,4 +205,8 @@ Project Link: [https://github.com/HannesLindback/Football-Manager-scouting](http
 [Python.org]: https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54
 [Python-url]: https://python.org/
 [SQLAlchemy.org]: https://img.shields.io/badge/SQLAlchemy-306998?logo=python&logoColor=white
+<<<<<<< HEAD
 [SQLAlchemy-url]: https://sqlalchemy.org/
+=======
+[SQLAlchemy-url]: https://sqlalchemy.org/
+>>>>>>> ae608ee3ea803191177dcfafce9d09ab40201e7b
