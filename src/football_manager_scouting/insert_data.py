@@ -35,7 +35,7 @@ def insert_data_to_database(
         After how many entries should commits be done. For a high number of inserts it is
         recommended to commit several times rather than one big final commit. If None will
         perform one commit after all entries have been inserted.
-    
+
     Notes:
     ------
     - Initializes a `Preprocess` instance for handling RTF file data based on the specified season.

@@ -2,7 +2,7 @@ from football_manager_scouting.category_mappings.categories import STATS, ATTRIB
 from football_manager_scouting.backend.score import Score
 from football_manager_scouting.backend.request_data import Request
 import csv
-from typing import Dict
+from typing import Dict, Iterable
 
 
 def _create_index(data, header, file) -> None:
@@ -103,10 +103,12 @@ def _postprocess(data, cats):
 
 
 def create_index(db_login: Dict[str, str],
-          category: str = 'all',
-          position: str = None,
-          mins: str = 0,
-          division: str = None) -> None:
+                 category: str = 'all',
+                 position: str | Iterable[str] = None,
+                 mins: int = 0,
+                 division: str | Iterable[str] = None,
+                 season: str | Iterable[str] = None,
+                 file: str = None) -> None:
     """
     Creates an index of FM players specifying how each player compares to the
     other players based on the statistics of each player.
@@ -119,13 +121,16 @@ def create_index(db_login: Dict[str, str],
             Should contain the keys: 'user', 'password', 'host' (both host and port) and 'database'.
         category (str, optional): Statistical category to filter the data. Can be 'all' or a position. 
             Supported positions are listed in categories.STATS. Default is 'all'.
-        position (str, optional): Comma-separated list of positions to filter players by (e.g., 'FW,MF').
+        position (str or iterable, optional): String or iterable of string to filter players after position.
             Default is None, which includes all positions.
         mins (str, optional): Minimum minutes played filter for the player data. Default is 0.
-        division (str, optional): Division to filter players by. Default is None.
-
+        division (str or iterable, optional): String or iterable of string to filter players after division.
+            Default is None, which includes all divisions.
+        season (str or iterable, optional): Seasons to filter players by. Default is None.
+        file (str, optional): The file name that the filtered data should be written to. Default (None)
+            a CSV file named after the category.
     Returns:
-        None: Writes the filtered player data to a CSV file named after the category.
+        None: Writes the filtered player data to a CSV file.
 
     Example:
         index(
@@ -139,11 +144,13 @@ def create_index(db_login: Dict[str, str],
     
     request = Request(**db_login)
     
-    file = f'./{category}.csv'
+    file = f'./{category}.csv' if file is None else file
     
-    position = [pos.strip() for pos in position.split(',')] if position else None
+    position = [position] if isinstance(position, str) else position
     
-    filter = {'pos': position, 'mins': mins, 'division': division}
+    division = [division] if isinstance(division, str) else division
+    
+    filter = {'pos': position, 'mins': mins, 'division': division, 'season': season}
     
     data = request.fetch_all(filter=filter)
     

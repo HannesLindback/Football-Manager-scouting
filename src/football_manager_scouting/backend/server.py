@@ -266,7 +266,7 @@ class Interact:
                division: Iterable[str] | str = None,
                min_ca: int = 0,
                eligible: str = None,
-               season: Iterable[int] = None,
+               season: Iterable[str] | str = None,
                columns = (Player, PlayerInfo,
                           Ca, Contract, Stats, Attributes)):
         """
@@ -287,7 +287,7 @@ class Interact:
             The minimum current ability (CA) value to filter players by. Default is 0.
         eligible : int, optional
             The eligibility status to filter players by. If provided, only players matching this status will be selected.
-        season : int, optional
+        season : Iterable of str, optional
             The season year to filter players by. If provided, only players from this specified season will be included.
         columns : tuple, optional
             The columns to retrieve in the query. Defaults to a predefined set of player-related tables.
@@ -351,17 +351,17 @@ class Interact:
                              .scalar()
 
         results_query = select(*columns) \
-                  .join(PlayerInfo, PlayerInfo._playerID == Player._id) \
-                  .join(Ca, Ca._playerID == Player._id) \
-                  .join(Contract, Contract._playerID == Player._id) \
-                  .join(Attributes, Attributes._playerID == Player._id) \
-                  .join(Stats, Stats._playerID == Player._id) \
-                  .join(Division, PlayerInfo.division == Division.id) \
-                  .join(Club, PlayerInfo.club == Club.id) \
-                  .join(Nat, PlayerInfo.nat == Nat.id) \
-                  .join(Eligible, PlayerInfo.eligible == Eligible.id) \
-                  .filter(ands(pos, name, division, eligible)) \
-                  .order_by(Player._id)
+                        .join(PlayerInfo, PlayerInfo._playerID == Player._id) \
+                        .join(Ca, Ca._playerID == Player._id) \
+                        .join(Contract, Contract._playerID == Player._id) \
+                        .join(Attributes, Attributes._playerID == Player._id) \
+                        .join(Stats, Stats._playerID == Player._id) \
+                        .join(Division, PlayerInfo.division == Division.id) \
+                        .join(Club, PlayerInfo.club == Club.id) \
+                        .join(Nat, PlayerInfo.nat == Nat.id) \
+                        .join(Eligible, PlayerInfo.eligible == Eligible.id) \
+                        .filter(ands(pos, name, division, eligible)) \
+                        .order_by(Player._id)
 
         results = self.session.execute(results_query)
 

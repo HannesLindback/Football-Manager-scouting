@@ -45,7 +45,7 @@ class Preprocess:
             }
     
     def __init__(self,
-                 season: int,
+                 season: str,
                  user: str,
                  password: str,
                  host: str,
