@@ -103,11 +103,11 @@ def _postprocess(data, cats):
 
 
 def create_index(db_login: Dict[str, str],
+                 season: str,
                  category: str = 'all',
                  position: str | Iterable[str] = None,
                  mins: int = 0,
                  division: str | Iterable[str] = None,
-                 season: str | Iterable[str] = None,
                  file: str = None) -> None:
     """
     Creates an index of FM players specifying how each player compares to the
@@ -126,7 +126,7 @@ def create_index(db_login: Dict[str, str],
         mins (str, optional): Minimum minutes played filter for the player data. Default is 0.
         division (str or iterable, optional): String or iterable of string to filter players after division.
             Default is None, which includes all divisions.
-        season (str or iterable, optional): Seasons to filter players by. Default is None.
+        season (str): Seasons to filter players by.
         file (str, optional): The file name that the filtered data should be written to. Default (None)
             a CSV file named after the category.
     Returns:
