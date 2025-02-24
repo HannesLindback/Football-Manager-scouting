@@ -6,7 +6,7 @@ from tqdm import tqdm
 def insert_data_to_database(
                     db_login: Dict[str, str],
                     path: str,
-                    season: int,
+                    season: str,
                     total: int = None,
                     n: int = 50000) -> None:
     """
@@ -43,24 +43,24 @@ def insert_data_to_database(
     - The `source_connection.insert` method is called for each entry, passing tables, player data, and lookup tables.
     - Commits either for every n entry or after all entries have been inserted.
     """
-    
+
     engine = Setup.create_engine(**db_login)
     interact = Interact(engine)
-    
+
     args = {'season': season}
     args.update(db_login)
     process = Preprocess(**args)
-    
+
     print('Inserting entries...')
-    
+
     read_rtf_file = process.read_rtf_file
     insert = interact.insert
     commit = interact.commit
-    
+
     count = 0
     for tables in tqdm(read_rtf_file(path), desc='Entry', total=total):
         _tables = tables.copy()
-        
+
         player = _tables['Player']
         del _tables['Player']
 
@@ -68,7 +68,7 @@ def insert_data_to_database(
 
         if n is not None and count % n == 0 and count != 0:
             commit(verbose=True)
-        
+
         count += 1
-            
+
     commit(verbose=True)

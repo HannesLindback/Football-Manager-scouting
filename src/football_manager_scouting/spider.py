@@ -4,7 +4,7 @@ from football_manager_scouting.backend.request_data import Request
 from collections import defaultdict
 from football_manager_scouting.backend.errors import MultiplePlayersFoundError
 from football_manager_scouting.backend.player import Players
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Iterable
 
 
 def _create_radar_chart(ranges: List[Tuple[float, float]],
@@ -68,7 +68,7 @@ def _create_radar_chart(ranges: List[Tuple[float, float]],
     radar = Radar(fontfamily="Ubuntu")
     fig, ax = radar.plot_radar(ranges=ranges, params=params, values=values, 
                                radar_color=['#B6282F', '#344D94'], alphas=[0.8, 0.6], 
-                               title=title, dpi=500, compare=True, filename='spider.jpg')
+                               title=title, dpi=500, compare=True, filename=f'{name}.jpg')
     
 
 def _get_ranges(all_stats: Dict[str, List[float]]) -> List[tuple[float, float]]:
@@ -156,11 +156,16 @@ def _get_stats(data: Players[Dict[str, Dict[str, str | float]]], filter_cats: se
 
 def create_spider(db_login: Dict[str, str],
            name: str,
-           comparison: str = 'average',
-           category: str = 'all',
+           season: str,
            position: str = None,
+           division: str = None,
            mins: int = 0,
-           division: str = None) -> None:
+           category: str = 'all',
+           comparison: str = 'average',
+           comparison_division: str | Iterable[str] = None,
+           comparison_position: str | Iterable[str] = None,
+           comparison_season: int = None
+           ) -> None:
     """
     Generates a radar chart ("spider") comparing a specific player's statistics to either
     the average statistics of players in the same division or to another specific player.
@@ -168,16 +173,24 @@ def create_spider(db_login: Dict[str, str],
     Args:
         db_login (Dict[str, str]): Dictionary containing login credentials for the database connection.
             Should contain the keys: 'user', 'password', 'host' (both host and port) and 'database'.
-        name (str): The name of the player to retrieve data for and display on the radar chart.
-        comparison (str, optional): Name of another player to compare to, or 'average' to use the average 
-            statistics of players in the same division. Default is 'average'.
-        category (str, optional): Statistical category to filter the data. Can be 'all' or a position. 
-            Supported positions are listed in categories.STATS. Default is 'all'.
-        position (str, optional): Comma-separated string of positions to filter the players by (e.g., 'DC, MC').
+        name (str): The name of the Player to retrieve data for and display on the radar chart.
+        season (int): Which season of the player's data that should be used.
+        position (str, optional): String of the position to filter the player by (e.g., 'DC' or 'MC').
             Default is None, which includes all positions.
+        division (str, optional): Division of the player to filter by. Default is None.
         mins (int, optional): Minimum number of minutes played by players to be included in the comparison.
             Default is 0.
-        division (str, optional): Division of the players to filter by (if applicable). Default is None.
+        category (str, optional): Statistical category to filter the data. Can be 'all' or a position. 
+            Supported positions are listed in categories.STATS. Default is 'all'.
+        comparison (str, optional): Name of another player to compare to, or 'average' to use the average 
+            statistics of players in the same division. Default is 'average'.
+        comparison_division (str or iterable of str, optional): The division(s) that should be included in 
+            the comparison. If None will use the same division as the named Player. Default is None.
+        comparison_position (str or iterable of str, optional): The position(s) that should be included in
+            the comparison. If comparison is another player, the compared player's position must be included.
+            If None will use the same position as the named Player. Default is None.
+        comparison_season (int): Which season that should be used for the comparison. If None will use the
+            season specified in argument season.
 
     Raises:
         MultiplePlayersFoundError: If more than one player is found for the provided `name` filter.
@@ -189,64 +202,107 @@ def create_spider(db_login: Dict[str, str],
         spider(
             db_login={'user': 'username', 'password': 'password', 'host': 'localhost:5432', 'database': 'database'},
             name='Player A',
-            comparison='Player B',
             category='DC',
             position='DC',
             mins=500,
-            division='Premier League'
+            division='Premier League',
+            'season': 28,
+            'comparison_division': ['Italian Serie A', 'English Premier Division'],
+            'comparison': 'Player B',
+            'comparison_position': 'DC',
         )
     """
-    
+
+    if division is None and comparison_division is None:
+        raise(ValueError('Args division and comparison_division cannot both be None!'))
+
+    if not isinstance(season, str):
+        season = str(season)
+
     request = Request(**db_login)
     
-    position = [pos.strip() for pos in position.split(',')] if position else None
     category = STATS[category]
     
-    player_filter = {'pos': position, 'mins': mins,
-                     'name': name, 'division': division}
+    ###########
+    player_filter = {'name': name, 'season': season,
+                     'pos': position, 'division': division,
+                     'mins': mins}
 
-    results: Players[dict[dict[str, str | int | float]]] = \
+    player: Players[dict[dict[str, str | int | float]]] = \
         request.fetch_all(filter=player_filter)
 
-    if len(results) > 1:
-        raise MultiplePlayersFoundError('Multiple players found!')
-    
-    player: dict[dict[str, str | int | float]] = next(iter(results.values()))
+    if len(player) > 1:
+        raise MultiplePlayersFoundError('Multiple players found! Apply more filters.')
+
+    player: dict[dict[str, str | int | float]] = next(iter(player.values()))  # Extract the sole item of dict.
     player_stats: list[float] = list(player['Stats'].values())
-        
-    players_from_division_filter  = {'pos': position,
-                                     'mins': mins,
-                                     'division': player['PlayerInfo']['division']}
+    ###########
+
+    ###########
+    comparison_division = comparison_division if comparison_division is not None else division
+    comparison_position = comparison_position if comparison_position is not None else position
+    comparison_season = comparison_season if comparison_season is not None else season
+    
+    players_from_division_filter  = {'season': comparison_season,
+                                     'pos': comparison_position,
+                                     'division': comparison_division,
+                                     'mins': mins}
+
+    request.players = Players()  # Inte en bra lösning!
 
     players_from_division: Players[dict[dict[str, str | int | float]]] = \
         request.fetch_all(filter=players_from_division_filter)
 
     if len(players_from_division) <= 15:
         print(f'Only {len(players_from_division)} players in database!')
-        
+
     stats_of_players_from_division = _get_stats(players_from_division, set(category))
 
     ranges = _get_ranges(stats_of_players_from_division)
-    
+
     if comparison != 'average':
-        comp_player_filter = {'pos': position,
-                              'name': comparison,
+        request.players = Players()  # Inte en bra lösning!
+
+        comp_player_filter = {'name': comparison,
+                              'season': comparison_season,
+                              'pos': comparison_position,
+                              'division': comparison_division,
                               'mins': mins}
-        
+
         comp_player = next(iter(request.fetch_all(filter=comp_player_filter).values()))
         comp_name = comp_player['Player']['name']
         comparison = [comp_player['Stats'][stat] for stat in category]
-        
 
     else:
         comp_name = 'average'
         comparison: list[float] = _average_stats(stats_of_players_from_division)
+
+    _create_radar_chart(
+        ranges=ranges,
+        params=category,
+        comparison=comparison,
+        player_stats=player_stats,
+        name=player['Player']['name'],
+        mins=player['PlayerInfo']['mins'],
+        age=player['PlayerInfo']['age'],
+        comp_name=comp_name
+        )
+
+
+if __name__ == '__main__':
+    db_login = {'user': 'postgres', 'password': 'root', 'host': 'localhost:5432', 'database': 'players'}
+
+    spider_args = {
+        'db_login': db_login,
+        'name': 'Andrea Pelamatti',
+        'category': 'WB',
+        'position': 'WBL',
+        'mins': 0,
+        'division': 'Italian Serie A',
+        'season': 28,
+        'comparison_division': ['Italian Serie A', 'English Premier Division'],
+        'comparison': 'Jude Bellingham',
+        'comparison_position': 'AMC',
+        }
     
-    _create_radar_chart(ranges=ranges,
-           params=category,
-           comparison=comparison,
-           player_stats=player_stats,
-           name=player['Player']['name'],
-           mins=player['PlayerInfo']['mins'],
-           age=player['PlayerInfo']['age'],
-           comp_name=comp_name)
+    create_spider(**spider_args)

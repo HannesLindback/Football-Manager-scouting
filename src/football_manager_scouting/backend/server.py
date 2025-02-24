@@ -35,7 +35,7 @@ class Setup:
         ------
         OperationError
             If the specified database does not exist.
-            
+
         Returns:
         -------
         sqlalchemy.engine.Engine
@@ -260,7 +260,7 @@ class Interact:
         return id[0]
 
     def select(self,
-               pos: Iterable[str] = None,
+               pos: Iterable[str] | str = None,
                mins: int = 0,
                name: Iterable[str] | str = None,
                division: Iterable[str] | str = None,
@@ -274,7 +274,7 @@ class Interact:
 
         Parameters:
         ----------
-        pos : iterable of str, optional
+        pos : iterable of str or str, optional
             A list or single value of positions to filter players by. 
             If provided, only players in these specified positions will be included.
         mins : int, optional
@@ -316,6 +316,10 @@ class Interact:
             ands.append(PlayerInfo.mins >= mins)
 
             if pos:
+
+                if not isinstance(pos, (tuple, list)):
+                    pos = [pos]
+
                 pos = [res[0] for res in self.session.query(Position.id) \
                             .filter(Position.position.in_(pos)).all()]
 
@@ -375,6 +379,7 @@ class Interact:
         
         # Iterate through all retrieved rows.
         with tqdm(total=n_rows, desc='Processing rows') as pbar: 
+            
             while row:
 
                 try:

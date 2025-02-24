@@ -52,9 +52,9 @@ class Preprocess:
                  database: str
                  ) -> None:
         """Class for preprocessing data from Football Manager."""
-        
+
         self._season = season
-        
+
         self.lookup_tables = {
             'division': 'division',
             'club': 'club',
@@ -65,10 +65,10 @@ class Preprocess:
         }
 
         engine = Setup.create_engine(user, password, host, database)
-    
+
         interact = Interact(engine)
         self.get_lookup_id = interact.get_lookup_id
-    
+
     def read_rtf_file(self, path: str):
         """
         Preprocesses the data of an RTF file generated from Football Manager.
@@ -104,27 +104,26 @@ class Preprocess:
         with open(path, 'r', encoding='utf-8') as fhand:
 
             column_headers = self._get_column_headers(fhand.readline())
-            
+
             for line in fhand:
-                
+
                 if self._is_content(line):
-                    
+
                     line = self._format_line(line, column_headers)
-                    
+
                     for column_header, value in line.items():
-                
+
                         category = CATEGORY_MAP[column_header]
-                        
+
                         if category != 'Unused':
                             column_header = self._format_header(column_header)
-                            
-                            
+
                             try:
                                 tables[category][column_header] = value
-                            
+
                             # Avoid the broken out PlayerInfo that is tuple.
                             except TypeError:
-                                
+
                                 if isinstance(tables[category], Iterable):
                                     tables[category] = {}
                                     tables[category][column_header] = value
@@ -141,6 +140,7 @@ class Preprocess:
                         tables['PlayerInfo'] = self._encode_string_names(tables['PlayerInfo'])
                         
                         tables['PlayerInfo'] = self._breakout_positions(tables['PlayerInfo'])
+                        
                     except KeyError:
                         pass
                     
