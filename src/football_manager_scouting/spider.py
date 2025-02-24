@@ -289,20 +289,3 @@ def create_spider(db_login: Dict[str, str],
         )
 
 
-if __name__ == '__main__':
-    db_login = {'user': 'postgres', 'password': 'root', 'host': 'localhost:5432', 'database': 'players'}
-
-    spider_args = {
-        'db_login': db_login,
-        'name': 'Andrea Pelamatti',
-        'category': 'WB',
-        'position': 'WBL',
-        'mins': 0,
-        'division': 'Italian Serie A',
-        'season': 28,
-        'comparison_division': ['Italian Serie A', 'English Premier Division'],
-        'comparison': 'Jude Bellingham',
-        'comparison_position': 'AMC',
-        }
-    
-    create_spider(**spider_args)
